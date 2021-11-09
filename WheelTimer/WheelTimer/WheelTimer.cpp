@@ -1,30 +1,41 @@
 ﻿
-
 #include <iostream>
-#include "CTimerWheel.h"
+#include "CTimerWheelCore.h"
 #include <windows.h>
 
 using namespace std;
 
+
+static int64_t startTime;
+
+
 void callback(void* data)
 {
+    uint64_t end = GetTickCount64();
+    cout << "消耗 " << end - startTime << endl;
     std::cout << "callback" << (int)data << std::endl;
 }
 
+
 int main()
 {
+    CTimerWheelCore *timerMgr = new CTimerWheelCore();
 
-    CTimerWheel *timerMgr = new CTimerWheel(20, GetTickCount64());
+    CTimerNodeCore *node = new CTimerNodeCore();
+    node->callback = callback;
+    node->userdata = (void*)124;
+    timerMgr->AddNode(node, 1251);
 
-    TimerNode *node = new TimerNode(callback,(void*)123);
-
-    timerMgr->AddNode(node, -1);
-  
-
+    startTime = GetTickCount64();
+    uint64_t lastUpdateTime = startTime;
     while (true)
     {
-        //cout << "Update" << endl;
-        timerMgr->Update(GetTickCount64());
-        Sleep(30);
+        uint64_t now = GetTickCount64();
+        uint32_t delta = now - lastUpdateTime;
+        if (delta > 3)
+        {
+			timerMgr->Update(delta);
+			lastUpdateTime = now;
+        }
     }
 }
