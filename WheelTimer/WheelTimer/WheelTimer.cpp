@@ -1,41 +1,56 @@
 ﻿
 #include <iostream>
-#include "CTimerWheelCore.h"
+#include "CTimerWheel.h"
 #include <windows.h>
 
 using namespace std;
 
 
-static int64_t startTime;
-
+static double startTime;
 
 void callback(void* data)
 {
-    uint64_t end = GetTickCount64();
-    cout << "消耗 " << end - startTime << endl;
+    double end = GetTickCount64();
+    if (end - startTime > 3000)
+    {
+        //test 回调时删除
+        CTimerMgr::Instance().DeleteCurExecuteNode();
+    }
+
     std::cout << "callback" << (int)data << std::endl;
+
 }
 
 
 int main()
 {
-    CTimerWheelCore *timerMgr = new CTimerWheelCore();
-
-    CTimerNodeCore *node = new CTimerNodeCore();
-    node->callback = callback;
-    node->userdata = (void*)124;
-    timerMgr->AddNode(node, 1251);
-
+    CTimerWheel* pWheel = new CTimerWheel();
+    pWheel->CreateTimerNode(1000, 7, callback, (void*)12);
+    pWheel->CreateTimerNode(1345, 3, callback, (void*)34);
     startTime = GetTickCount64();
-    uint64_t lastUpdateTime = startTime;
+    double lastUpdateTime = startTime;
     while (true)
     {
-        uint64_t now = GetTickCount64();
-        uint32_t delta = now - lastUpdateTime;
+        double now = GetTickCount64();
+        double delta = now - lastUpdateTime;
         if (delta > 3)
         {
-			timerMgr->Update(delta);
+            if (pWheel != nullptr)
+            {
+                pWheel->Update(delta);
+            }
 			lastUpdateTime = now;
+        }
+
+
+        // test 直接删除timerwheel
+        if(now - startTime > 2000)
+        {
+            if (pWheel != nullptr)
+            {
+                delete pWheel;
+                pWheel = nullptr;
+            }
         }
     }
 }

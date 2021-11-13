@@ -1,23 +1,23 @@
 #pragma once
 #include "CIntrusiveList.h"
-
+#include <iostream>
 /*
-* Use Five Wheels
+* 使用五轮时间轮
 */
 
- // The first wheel bits
-#define TVR_BITS 8
+ // 第一轮
+#define TVR_BITS 8 // 占8位
 #define TVR_SIZE (1 << TVR_BITS)
 #define TVR_MASK (TVR_SIZE - 1)
 
-// Other wheel bits
-#define TVN_BITS 6
+// 其他4个轮
+#define TVN_BITS 6 // 每个轮占6位
 #define TVN_SIZE (1 << TVN_BITS)
 #define TVN_MASK (TVN_SIZE - 1)
 
-// Calc the index in first wheel
+// 计算在第一个轮中的索引
 #define FIRST_INDEX(v) ((v) & TVR_MASK)
-// Calc the index in other wheel
+// 计算在其他轮中的索引
 #define NTH_INDEX(v, n) (((v) >> (TVR_BITS + (n) * TVN_BITS)) & TVN_MASK)
 
 // callback
@@ -26,21 +26,28 @@ typedef void (Timer_cb_t)(void*);
 
 struct CTimerNodeCore
 {
-    list_head lst;
-    void* userdata;              
-    Timer_cb_t *callback;
-    uint32_t expire;  // expire time
-    uint64_t endtick;
+    list_head lst; // 浸入式链表
+    void* userdata;	// 用户数据              
+    Timer_cb_t *callback; // 结束回调
+    uint32_t expire;  // 到期时间
 
-    CTimerNodeCore():callback(nullptr),userdata(nullptr),expire(0), endtick(0)
-    {
+	CTimerNodeCore():callback(nullptr),userdata(nullptr),expire(0)
+	{
+		std::cout << "CTimerNodeCore 创建" << std::endl;
         INIT_LIST_HEAD(&lst);
     }
     ~CTimerNodeCore()
     {
+		std::cout << "CTimerNodeCore 销毁" << std::endl;
         list_del_init(&lst);
         expire = 0;
     }
+
+	void Detach()
+	{
+		list_del_init(&lst);
+		expire = 0;
+	}
 };
 
 // the first wheel
@@ -76,11 +83,10 @@ public:
 				INIT_LIST_HEAD(this->tv[i].vec + j);
 		}
     }
-    void AddNode(CTimerNodeCore* node, uint32_t delta)
+    void AddNode(CTimerNodeCore* node,uint32_t interval)
     {
-        delta = delta > 0 ? delta : 1;
-        node->expire = currtick + delta;
-        node->endtick = alltick + delta;
+		interval = interval > 0 ? interval : 1;
+        node->expire = currtick + interval;
         _AddNode(node, true);
     }
 	void Update(uint32_t delta)
