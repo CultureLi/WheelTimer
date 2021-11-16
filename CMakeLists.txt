@@ -1,0 +1,8 @@
+project(CTimer)
+cmake_minimum_required(VERSION 3.0)
+set(SourceDir .)
+include(makefun.cmake)
+add_module(WheelTimer)
+add_module(common)
+add_source_file(Main/Main.cpp)
+build_exe()
