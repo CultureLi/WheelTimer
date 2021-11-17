@@ -33,12 +33,12 @@ struct CTimerNodeCore
 
 	CTimerNodeCore():callback(nullptr),userdata(nullptr),expire(0)
 	{
-		std::cout << "CTimerNodeCore 创建" << std::endl;
+		//std::cout << "CTimerNodeCore 创建" << std::endl;
         INIT_LIST_HEAD(&lst);
     }
     ~CTimerNodeCore()
     {
-		std::cout << "CTimerNodeCore 销毁" << std::endl;
+		//std::cout << "CTimerNodeCore 销毁" << std::endl;
         list_del_init(&lst);
         expire = 0;
     }

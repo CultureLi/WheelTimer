@@ -1,5 +1,6 @@
 #pragma once
 #include <stdint.h>
+#include "Common.h"
 #include "CTimerWheelCore.h"
 #include <map>
 
@@ -45,14 +46,19 @@ private:
 public:
 	CTimerWheel();
 	~CTimerWheel();
-	void DetachNode(CTimerNode* pNode);
-	inline uint64_t GenNodeUid() { return ++nodeUidIndex; }
+	uint64_t GenNodeUid();
 	uint64_t CreateTimerNode(uint64_t interval, int repeatTimes, Timer_cb_t* pFun, void* data);
 	void AddNode(CTimerNode* pNode, uint32_t interval);
-
+	void DeleteNode(uint64_t uid);
+	void EraseNodeUid(uint64_t uid) {
+		if (nodeMap.find(uid) != nodeMap.end())
+			nodeMap.erase(uid);
+	}
 	void Update(double delta);
 
 	double remainTime; //每次更新后剩余时间
+
+	uint64_t GetNodeCount() { return nodeMap.size(); }
 };
 
 
@@ -76,12 +82,13 @@ public:
 
 	inline uint32_t GenWheelUid() { return ++wheelUidIndex; }
 	void DeleteCurExecuteNode();
-	void DeleteTimerWheel(uint32_t);
+	void DeleteNode(uint64_t);
+	CTimerWheel* GetWheelByNodeUid(uint64_t uid);
 
 private:
 	static uint32_t wheelUidIndex;
 public:
-	static CTimerNode* curExecuteNode;
+	static uint64_t curExecuteNodeUid;
 	std::map<uint32_t, CTimerWheel*> wheelMap;
 };
 

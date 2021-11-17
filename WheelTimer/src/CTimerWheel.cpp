@@ -1,6 +1,6 @@
 #include "CTimerWheel.h"
 
-CTimerNode* CTimerMgr::curExecuteNode = nullptr;
+uint64_t CTimerMgr::curExecuteNodeUid = 0;
 uint32_t CTimerMgr::wheelUidIndex = 0;
 
 void TimerCallBack(void* data)
@@ -12,7 +12,7 @@ void TimerCallBack(void* data)
 
 CTimerNode::CTimerNode(CTimerWheel* pWheel, uint64_t interval, int repeatTimes, Timer_cb_t* pFun, void* data)
 {
-	std::cout << "CTimerNode 创建" << std::endl;
+	
 	this->interval = interval;
 	this->repeatTimes = repeatTimes;
 	this->callback = pFun;
@@ -21,19 +21,21 @@ CTimerNode::CTimerNode(CTimerWheel* pWheel, uint64_t interval, int repeatTimes, 
 	node.userdata = this;
 	uid = pWheel->GenNodeUid();
 	this->pWheel = pWheel;
+	//std::cout << "CTimerNode 创建" << (int)data << std::endl;
 }
 
 CTimerNode::~CTimerNode()
 {
-	std::cout << "CTimerNode 销毁" << std::endl;
+	pWheel->EraseNodeUid(uid);
+	//std::cout << "CTimerNode 销毁" << (int)userdata << std::endl;
 }
 
 bool CTimerNode::Execute()
 {
-	CTimerMgr::curExecuteNode = this;
+	CTimerMgr::curExecuteNodeUid = uid;
 	if (callback)
 		callback(userdata);
-	CTimerMgr::curExecuteNode = nullptr;
+	CTimerMgr::curExecuteNodeUid = 0;
 
 	if (pWheel == nullptr)
 		return false;
@@ -45,7 +47,6 @@ bool CTimerNode::Execute()
 		pWheel->AddNode(this, this->interval);
 	else
 	{
-		pWheel->DetachNode(this);
 		return false;
 	}
 	return true;
@@ -62,23 +63,30 @@ void CTimerNode::Detach()
 
 CTimerWheel::CTimerWheel():nodeUidIndex(0), remainTime(0.0f)
 {
-	std::cout << "CTimerWheel 创建" << std::endl;
+	std::cout << "CTimerWheel 创建" << uid << std::endl;
 	uid = CTimerMgr::Instance().GenWheelUid();
 	CTimerMgr::Instance().wheelMap[uid] = this;
 }
 
 CTimerWheel::~CTimerWheel()
 {
-	std::cout << "CTimerWheel 销毁" << std::endl;
+	std::cout << "CTimerWheel 销毁" << uid<< std::endl;
 	std::map<uint64_t, CTimerNode*>::iterator iter;
-	for (iter = nodeMap.begin();iter!= nodeMap.end();++iter)
+
+	std::vector<uint64_t> nodeUidList = extract_keys<uint64_t, CTimerNode*>(nodeMap);
+	for(uint64_t nodeUid : nodeUidList)
 	{
-		(iter->second)->Detach();
-		delete iter->second;
+		DeleteNode(nodeUid);
 	}
 	nodeMap.clear();
 	CTimerMgr::Instance().wheelMap.erase(uid);
 
+}
+
+uint64_t CTimerWheel::GenNodeUid()
+{
+	nodeUidIndex++;
+	return GENUUID64(uid, nodeUidIndex);
 }
 
 uint64_t CTimerWheel::CreateTimerNode(uint64_t interval, int repeatTimes, Timer_cb_t* pFun, void* data)
@@ -98,13 +106,21 @@ void CTimerWheel::AddNode(CTimerNode* pNode, uint32_t interval)
 	timer.AddNode(&pNode->node, interval);
 }
 
-void CTimerWheel::DetachNode(CTimerNode* pNode)
+void CTimerWheel::DeleteNode(uint64_t uid)
 {
-	if (pNode != nullptr)
-	{
+	std::map<uint64_t, CTimerNode*>::iterator iter = nodeMap.find(uid);
+	if (iter == nodeMap.end())
+		return;
+
+	CTimerNode* pNode = iter->second;
+	if (pNode == nullptr)
+		return;
+
+	if (pNode->GetUid() != CTimerMgr::curExecuteNodeUid)
+		delete pNode;
+	else
 		pNode->Detach();
-		nodeMap.erase(pNode->GetUid());
-	}
+
 }
 
 void CTimerWheel::Update(double delta)
@@ -123,13 +139,23 @@ void CTimerWheel::Update(double delta)
 
 void CTimerMgr::DeleteCurExecuteNode()
 {
-	if (CTimerMgr::curExecuteNode != nullptr && CTimerMgr::curExecuteNode->pWheel != nullptr)
-	{
-		CTimerMgr::curExecuteNode->pWheel->DetachNode(CTimerMgr::curExecuteNode);
-	}
-	
+	DeleteNode(curExecuteNodeUid);
 }
-void CTimerMgr::DeleteTimerWheel(uint32_t)
-{
 
+CTimerWheel* CTimerMgr::GetWheelByNodeUid(uint64_t uid)
+{
+	uint32_t wheelUid = HIGHUUID64(uid);
+	std::map<uint32_t, CTimerWheel*>::iterator wheelIter;
+	wheelIter = wheelMap.find(wheelUid);
+	if (wheelIter == wheelMap.end())
+		return nullptr;
+
+	return wheelIter->second;	
+}
+
+void CTimerMgr::DeleteNode(uint64_t uid)
+{
+	CTimerWheel* pWheel = GetWheelByNodeUid(uid);
+	if(pWheel)
+		pWheel->DeleteNode(uid);
 }
